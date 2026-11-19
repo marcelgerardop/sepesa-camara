@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Test and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
+          if-no-files-found: error
+          retention-days: 14
+
+  deploy:
+    name: Deploy to camara.sepesa.com.ve
+    needs: check
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: production
+      url: https://camara.sepesa.com.ve
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Check Cloudflare secrets
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::error::Add the CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID repository secrets. See the README."
+            exit 1
+          fi
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - name: Upload the tested build to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=sepesa-camara --branch=main --commit-hash=${{ github.sha }}
+      - name: Confirm the site serves this build
+        run: |
+          asset=$(grep -oE 'assets/index-[A-Za-z0-9_-]+\.js' dist/index.html | head -n 1)
+          for attempt in 1 2 3 4 5 6; do
+            if curl -fsS https://camara.sepesa.com.ve/ | grep -q "$asset"; then
+              echo "Live site serves $asset"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::camara.sepesa.com.ve is not serving $asset yet."
+          exit 1
