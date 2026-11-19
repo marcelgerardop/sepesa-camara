@@ -1,9 +1,10 @@
-const CACHE = 'sepesa-camara-v1';
+const CACHE = 'sepesa-camara-v8';
 const SHELL = [
   '/',
   '/index.html',
   '/manifest.webmanifest',
   '/brand/sepesa-logo-white.png',
+  '/brand/sepesa-logo-dark.png',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/icons/apple-touch-icon.png',

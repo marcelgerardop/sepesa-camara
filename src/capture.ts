@@ -1,4 +1,4 @@
-import { coverCrop, evenSize } from './frame';
+import { evenSize, zoomCrop } from './frame';
 import { drawStamp } from './stamp';
 import { fileName } from './time';
 
@@ -96,10 +96,12 @@ function paintFrame(
   logo: HTMLImageElement,
   facing: Facing,
   when: Date,
+  map: HTMLCanvasElement | null,
+  zoom: number,
 ): void {
   const viewW = video.clientWidth || video.videoWidth;
   const viewH = video.clientHeight || video.videoHeight;
-  const crop = coverCrop(video.videoWidth, video.videoHeight, viewW, viewH);
+  const crop = zoomCrop(video.videoWidth, video.videoHeight, viewW, viewH, zoom);
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   ctx.save();
   if (facing === 'user') {
@@ -108,28 +110,30 @@ function paintFrame(
   }
   ctx.drawImage(video, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, ctx.canvas.width, ctx.canvas.height);
   ctx.restore();
-  drawStamp(ctx, ctx.canvas.width, ctx.canvas.height, logo, when);
+  drawStamp(ctx, ctx.canvas.width, ctx.canvas.height, logo, when, map);
 }
 
 export async function takePhoto(
   video: HTMLVideoElement,
   logo: HTMLImageElement,
   facing: Facing,
+  map: HTMLCanvasElement | null,
+  zoom: number,
 ): Promise<{ blob: Blob; name: string }> {
   if (!video.videoWidth || !video.videoHeight) {
     throw new Error('camera-not-ready');
   }
   const viewW = video.clientWidth || video.videoWidth;
   const viewH = video.clientHeight || video.videoHeight;
-  const crop = coverCrop(video.videoWidth, video.videoHeight, viewW, viewH);
-  const size = evenSize(crop.sw, crop.sh, PHOTO_MAX);
+  const crop = zoomCrop(video.videoWidth, video.videoHeight, viewW, viewH, zoom);
+  const size = evenSize(crop.sw * zoom, crop.sh * zoom, PHOTO_MAX);
   const canvas = document.createElement('canvas');
   canvas.width = size.width;
   canvas.height = size.height;
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('canvas');
   const when = new Date();
-  paintFrame(ctx, video, logo, facing, when);
+  paintFrame(ctx, video, logo, facing, when, map, zoom);
   const blob = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((result) => (result ? resolve(result) : reject(new Error('jpeg'))), 'image/jpeg', 0.92);
   });
@@ -140,6 +144,7 @@ export interface Recording {
   blob: Blob;
   name: string;
   silent: boolean;
+  mapped: boolean;
 }
 
 export class VideoRecorder {
@@ -153,6 +158,8 @@ export class VideoRecorder {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private facing: Facing = 'environment';
+  private map: HTMLCanvasElement | null = null;
+  private zoom = 1;
 
   constructor(
     private video: HTMLVideoElement,
@@ -175,23 +182,25 @@ export class VideoRecorder {
     return this.startedAt ? Date.now() - this.startedAt : 0;
   }
 
-  async start(facing: Facing): Promise<{ silent: boolean }> {
+  async start(facing: Facing, map: HTMLCanvasElement | null, zoom: number): Promise<{ silent: boolean }> {
     if (!this.video.videoWidth) throw new Error('camera-not-ready');
     const choice = mimeChoice();
     if (!canBurnVideo() || !choice) throw new BurnUnsupported();
 
     this.facing = facing;
+    this.map = map;
+    this.zoom = Math.max(1, zoom);
     this.ext = choice.ext;
     this.chunks = [];
     this.silent = false;
 
     const viewW = this.video.clientWidth || this.video.videoWidth;
     const viewH = this.video.clientHeight || this.video.videoHeight;
-    const crop = coverCrop(this.video.videoWidth, this.video.videoHeight, viewW, viewH);
-    const size = evenSize(crop.sw, crop.sh, VIDEO_MAX);
+    const crop = zoomCrop(this.video.videoWidth, this.video.videoHeight, viewW, viewH, this.zoom);
+    const size = evenSize(crop.sw * this.zoom, crop.sh * this.zoom, VIDEO_MAX);
     this.canvas.width = size.width;
     this.canvas.height = size.height;
-    paintFrame(this.ctx, this.video, this.logo, facing, new Date());
+    paintFrame(this.ctx, this.video, this.logo, facing, new Date(), this.map, this.zoom);
 
     let stream: MediaStream;
     try {
@@ -227,7 +236,7 @@ export class VideoRecorder {
     this.recorder = recorder;
     this.startedAt = Date.now();
     const loop = () => {
-      paintFrame(this.ctx, this.video, this.logo, this.facing, new Date());
+      paintFrame(this.ctx, this.video, this.logo, this.facing, new Date(), this.map, this.zoom);
       this.raf = requestAnimationFrame(loop);
     };
     this.raf = requestAnimationFrame(loop);
@@ -252,7 +261,7 @@ export class VideoRecorder {
     });
     this.finish();
     const when = new Date();
-    return { blob, name: fileName(when, this.ext), silent: this.silent };
+    return { blob, name: fileName(when, this.ext), silent: this.silent, mapped: this.map !== null };
   }
 
   cancel(): void {

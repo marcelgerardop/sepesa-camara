@@ -22,10 +22,12 @@ export function drawStamp(
   height: number,
   logo: CanvasImageSource & { width: number; height: number },
   date: Date,
+  map: (CanvasImageSource & { width: number; height: number }) | null = null,
 ): void {
-  const pad = Math.round(Math.min(width, height) * 0.035);
+  const short = Math.min(width, height);
+  const pad = Math.round(short * 0.035);
   const label = stampLabel(date);
-  const fontSize = Math.max(22, Math.round(Math.min(width, height) * 0.034));
+  const fontSize = Math.max(22, Math.round(short * 0.034));
   ctx.save();
   ctx.font = `600 ${fontSize}px ${STAMP_FONT}`;
   ctx.textBaseline = 'middle';
@@ -34,14 +36,22 @@ export function drawStamp(
   const padY = fontSize * 0.46;
   const pillW = textWidth + padX * 2;
   const pillH = fontSize + padY * 2;
-  const gap = pad;
-  const maxLogoW = Math.max(80, width - pad * 2 - pillW - gap);
-  const logoW = Math.min(width * 0.36, maxLogoW);
+  const gap = Math.round(fontSize * 0.38);
+  const mapW = map ? Math.round(short * 0.5) : 0;
+  const mapH = map ? Math.round(mapW * (map.height / Math.max(1, map.width))) : 0;
+  const logoW = short * 0.52;
   const logoH = logoW * (logo.height / Math.max(1, logo.width));
-  const logoX = pad;
-  const logoY = height - pad - logoH;
-  const pillX = width - pad - pillW;
-  const pillY = height - pad - pillH;
+  const logoX = width - pad - logoW;
+  const logoY = pad;
+  const blockW = Math.max(pillW, mapW);
+  const blockX = width - pad - blockW;
+  const blockBottom = height - pad;
+  const blockH = pillH + (map ? gap + mapH : 0);
+  const pillX = blockX + blockW - pillW;
+  const pillY = blockBottom - blockH;
+  const mapX = blockX + blockW - mapW;
+  const mapY = pillY + pillH + gap;
+  const radius = Math.max(10, fontSize * 0.4);
 
   ctx.shadowColor = 'rgba(0, 0, 0, 0.72)';
   ctx.shadowBlur = Math.max(10, width * 0.012);
@@ -50,6 +60,20 @@ export function drawStamp(
   ctx.shadowColor = 'transparent';
   ctx.shadowBlur = 0;
   ctx.shadowOffsetY = 0;
+
+  if (map) {
+    ctx.save();
+    ctx.beginPath();
+    pillPath(ctx, mapX, mapY, mapW, mapH, radius);
+    ctx.clip();
+    ctx.drawImage(map, mapX, mapY, mapW, mapH);
+    ctx.restore();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.92)';
+    ctx.lineWidth = Math.max(3, fontSize * 0.12);
+    ctx.beginPath();
+    pillPath(ctx, mapX, mapY, mapW, mapH, radius);
+    ctx.stroke();
+  }
 
   ctx.fillStyle = 'rgba(0, 0, 0, 0.62)';
   ctx.beginPath();
@@ -64,6 +88,7 @@ export function drawStamp(
 export function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image();
+    image.crossOrigin = 'anonymous';
     image.onload = () => resolve(image);
     image.onerror = () => reject(new Error('logo'));
     image.src = src;

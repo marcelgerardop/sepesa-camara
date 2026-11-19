@@ -3,10 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#000000" />
+    <meta name="theme-color" content="#ffffff" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Cámara SEPESA" />
     <meta name="description" content="Cámara SEPESA. La foto se queda en el teléfono, con el logo y la hora de Caracas." />
     <link rel="manifest" href="/manifest.webmanifest" />
@@ -15,49 +15,108 @@
     <title>Cámara SEPESA</title>
   </head>
   <body>
-    <section id="gate" class="screen gate">
-      <img class="gate-logo" src="/brand/sepesa-logo-white.png" alt="SEPESA" />
-      <button id="open" class="shutter" type="button" aria-label="Abrir cámara"></button>
-      <p class="hint">Usa la cámara de este teléfono. La foto y el video se quedan aquí.</p>
+    <section id="gate" class="screen gate is-active">
+      <img class="gate-logo" src="/brand/sepesa-logo-dark.png" alt="SEPESA" />
+      <button id="open" class="continue" type="button">Continuar</button>
+      <p class="hint">Usa la cámara de este teléfono. La foto se queda aquí, con el mapa de dónde la tomaste.</p>
       <p id="gate-error" class="error" hidden></p>
     </section>
 
-    <section id="view" class="screen" hidden>
-      <video id="preview" class="preview" playsinline autoplay muted></video>
+    <section id="view" class="screen view">
+      <div id="frame" class="frame">
+        <video id="preview" class="preview" playsinline autoplay muted></video>
+        <div id="flash" class="flash"></div>
+      </div>
       <div class="topbar">
-        <button id="torch" class="icon-btn" type="button" aria-label="Linterna" aria-pressed="false" hidden>
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path fill="currentColor" d="M9 2h6l1 4H8L9 2zm-1 6h8l1 3v11a2 2 0 0 1-2 2h-6a2 2 0 0 1-2-2V11l1-3zm3 5h2v4h-2v-4z" />
-          </svg>
+        <div class="tools">
+          <button id="torch" class="tool-btn" type="button" aria-label="Linterna" aria-pressed="false" hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path fill="currentColor" d="M13 2 5 13.5h5.2L9 22l9-12.5h-5.4L13 2z" />
+            </svg>
+          </button>
+          <button id="format" class="tool-btn format-btn" type="button" aria-label="Formato" aria-expanded="false" aria-controls="formats">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4" />
+            </svg>
+            <span id="format-label">Completa</span>
+          </button>
+        </div>
+      </div>
+      <div id="formats" class="formats" role="group" aria-label="Formato de la foto">
+        <button class="format-chip" type="button" data-format="full" aria-pressed="true">
+          <i class="shape" style="width: 10px; height: 18px"></i>Completa
         </button>
-        <button id="flip" class="icon-btn" type="button" aria-label="Cambiar cámara">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 8a8 8 0 0 1 13.5-3.5M20 4v4h-4M20 16a8 8 0 0 1-13.5 3.5M4 20v-4h4" />
-          </svg>
+        <button class="format-chip" type="button" data-format="3:4" aria-pressed="false">
+          <i class="shape" style="width: 12px; height: 16px"></i>3:4
+        </button>
+        <button class="format-chip" type="button" data-format="1:1" aria-pressed="false">
+          <i class="shape" style="width: 14px; height: 14px"></i>1:1
+        </button>
+        <button class="format-chip" type="button" data-format="16:9" aria-pressed="false">
+          <i class="shape" style="width: 20px; height: 11px"></i>16:9
+        </button>
+        <button class="format-chip" type="button" data-format="pano" aria-pressed="false">
+          <i class="shape" style="width: 26px; height: 9px"></i>Pano
         </button>
       </div>
       <div id="rec" class="rec" hidden>
         <span class="rec-dot"></span>
         <span id="elapsed">0:00</span>
       </div>
-      <p id="view-error" class="view-error" hidden></p>
+      <div id="zoom" class="zoom" role="group" aria-label="Zoom">
+        <button class="zoom-btn" type="button" data-zoom="0.5" aria-pressed="false">.5</button>
+        <button class="zoom-btn" type="button" data-zoom="1" aria-pressed="true">1x</button>
+        <button class="zoom-btn" type="button" data-zoom="2" aria-pressed="false">2</button>
+      </div>
+      <p id="view-error" class="view-error" role="status"></p>
       <div class="dock">
-        <div class="modes" role="group" aria-label="Modo">
-          <button id="mode-photo" class="mode" type="button" aria-pressed="true">Foto</button>
-          <button id="mode-video" class="mode" type="button" aria-pressed="false">Video</button>
-        </div>
         <button id="shutter" class="shutter" type="button" aria-label="Tomar foto"></button>
+        <div class="dock-row">
+          <button id="thumb" class="thumb is-empty" type="button" aria-label="Ver lo tomado en esta sesión" disabled>
+            <img id="thumb-img" alt="" />
+            <span id="thumb-count" class="thumb-count"></span>
+          </button>
+          <div class="modes" role="group" aria-label="Modo">
+            <button id="mode-video" class="mode" type="button" aria-pressed="false">Video</button>
+            <button id="mode-photo" class="mode" type="button" aria-pressed="true">Foto</button>
+          </div>
+          <button id="flip" class="icon-btn" type="button" aria-label="Cambiar cámara">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 8a8 8 0 0 1 13.5-3.5M20 4v4h-4M20 16a8 8 0 0 1-13.5 3.5M4 20v-4h4" />
+            </svg>
+          </button>
+        </div>
       </div>
     </section>
 
-    <section id="review" class="screen" hidden>
-      <img id="review-img" class="review-still" alt="Foto con sello SEPESA" />
-      <video id="review-video" class="review-video" playsinline controls hidden></video>
+    <section id="review" class="screen review">
+      <div class="review-top">
+        <button id="retake" class="icon-btn" type="button" aria-label="Volver a la cámara">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M15 18l-6-6 6-6" />
+          </svg>
+        </button>
+        <span id="review-count" class="review-count"></span>
+        <button id="delete" class="icon-btn delete" type="button" aria-label="Borrar">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6" />
+          </svg>
+          <span class="delete-ask">¿Borrar?</span>
+        </button>
+      </div>
+      <div id="review-stage" class="review-stage">
+        <img id="review-img" class="review-still" alt="Foto con sello SEPESA" />
+        <video id="review-video" class="review-video" playsinline controls hidden></video>
+      </div>
       <p id="review-note" class="review-note" hidden></p>
+      <div id="strip" class="strip" role="group" aria-label="Fotos y videos de esta sesión"></div>
       <div class="review-bar">
-        <button id="retake" class="action" type="button">Repetir</button>
-        <button id="download" class="action" type="button">Descargar</button>
-        <button id="share" class="action action-primary" type="button">Compartir</button>
+        <button id="download" class="icon-action" type="button" aria-label="Descargar">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" />
+          </svg>
+        </button>
+        <button id="share" class="action action-primary" type="button">En fotos</button>
       </div>
     </section>
 
